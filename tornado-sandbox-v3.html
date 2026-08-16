@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Genèse d'une Tornade — Bac à sable scientifique</title>
+<style>
+  :root{
+    --bg:#141c2b;
+    --panel-bg: rgba(30, 40, 58, 0.78);
+    --panel-border: rgba(255,255,255,0.10);
+    --accent: #6fb7ff;
+    --accent2: #ffb86f;
+    --accent3: #6fffb8;
+    --text: #eef2f8;
+    --text-dim: #aab4c6;
+  }
+  *{box-sizing:border-box;}
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; overflow:hidden; }
+  canvas#scene{ position:fixed; top:0; left:0; width:100vw; height:100vh; display:block; }
+
+  #panel{
+    position:fixed; top: 16px; left: 16px; width: 340px;
+    max-height: calc(100vh - 32px); overflow-y:auto;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-radius: 14px; padding: 18px 20px 22px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.35); z-index: 10;
+  }
+  #panel h1{ font-size: 16px; margin: 0 0 4px 0; font-weight:600; }
+  #panel .subtitle{ font-size: 11.5px; color: var(--text-dim); margin-bottom: 14px; line-height:1.5; }
+
+  .stage-buttons{ display:grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .stage-btn{
+    background: rgba(255,255,255,0.06); border: 1px solid var(--panel-border); color: var(--text);
+    padding: 8px 6px; border-radius: 8px; font-size: 11.5px; cursor:pointer; text-align:center;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .stage-btn:hover{ background: rgba(255,255,255,0.12); }
+  .stage-btn.active{ background: rgba(111,183,255,0.22); border-color: var(--accent); color: var(--accent); }
+
+  #science-box{
+    background: rgba(0,0,0,0.18); border-left: 3px solid var(--accent); border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 16px; font-size: 12.5px; line-height:1.55; color: var(--text);
+    transition: opacity 0.35s ease;
+  }
+  #science-box .sci-title{ font-weight:600; color: var(--accent2); font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+  #science-box p{ margin: 0 0 6px 0; }
+  #science-box p:last-child{ margin-bottom:0; }
+
+  .group{ margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .group:last-of-type{ border-bottom:none; }
+  .group-label{ font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--accent);
+    font-weight:600; margin-bottom: 6px; }
+  .group-desc{ font-size: 11.5px; color: var(--text-dim); line-height:1.5; margin-bottom: 8px; }
+
+  .row{ display:flex; justify-content:space-between; align-items:center; font-size: 12.5px; margin-bottom: 2px; }
+  .row .val{ color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  input[type=range]{ width:100%; margin: 2px 0 4px 0; accent-color: var(--accent); }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; font-size:12.5px; margin-bottom:8px; }
+  input[type=checkbox]{ accent-color: var(--accent); width:15px; height:15px; }
+
+  .legend{ font-size: 11px; color: var(--text-dim); line-height:1.6; margin-bottom: 12px; }
+  .legend b{ color: var(--text); }
+
+  #sources{ font-size: 10.5px; color: var(--text-dim); line-height:1.6; margin-top: 4px; opacity: 0.85; }
+  #sources b{ color: var(--text); }
+
+  #model-warning{
+    background: rgba(255,140,60,0.10); border: 1px solid rgba(255,140,60,0.35);
+    border-radius: 8px; padding: 10px 12px; margin-top: 4px;
+  }
+  .mw-title{ font-size: 12px; font-weight:700; color: #ffb86f; margin-bottom: 5px; }
+  .mw-text{ font-size: 11px; color: var(--text-dim); line-height:1.5; }
+
+  #capture-btn, #exit-capture-btn{
+    position: fixed; z-index: 20;
+    background: var(--panel-bg); border: 1px solid var(--panel-border); color: var(--text);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight:600; cursor:pointer;
+  }
+  #capture-btn{ bottom: 16px; left: 50%; transform: translateX(-50%); }
+  #exit-capture-btn{ top: 16px; left: 50%; transform: translateX(-50%); display:none; }
+  body.capture-mode #panel, body.capture-mode #compass-wrap, body.capture-mode #readout, body.capture-mode #capture-btn{
+    display: none !important;
+  }
+  body.capture-mode #exit-capture-btn{ display: block; }
+
+  #panel::-webkit-scrollbar{ width:6px; }
+  #panel::-webkit-scrollbar-thumb{ background: rgba(255,255,255,0.15); border-radius:4px; }
+
+  #readout{
+    position:fixed; bottom: 16px; right: 16px; background: var(--panel-bg);
+    border: 1px solid var(--panel-border); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-radius: 12px; padding: 12px 16px; font-size: 12px; color: var(--text-dim);
+    z-index: 10; line-height:1.6; min-width: 190px;
+  }
+  #readout b{ color: var(--text); }
+  #readout .stage-name{ color: var(--accent2); font-weight:600; display:block; margin-bottom:4px; font-size:12.5px; }
+
+  .gauge-wrap{
+    position: relative; width: 100%; height: 8px; margin-top: 4px;
+    background: rgba(255,255,255,0.1); border-radius: 4px; overflow: visible;
+  }
+  .gauge-fill{
+    position:absolute; top:0; left:0; height:100%; width:0%;
+    background: linear-gradient(90deg, #6fb7ff, #6fffb8); border-radius: 4px;
+    transition: background 0.3s ease;
+  }
+  .gauge-threshold{
+    position:absolute; top:-3px; left:12%; width: 2px; height: 14px;
+    background: #ffb86f; box-shadow: 0 0 4px #ffb86f;
+  }
+
+  #compass-wrap{
+    position:fixed; top: 16px; right: 16px; z-index: 10;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-radius: 12px; padding: 12px 14px; width: 160px; text-align:center;
+  }
+  .compass-title{ font-size: 10.5px; color: var(--text-dim); margin-bottom: 6px; line-height:1.4; }
+  #compass{ width: 100%; height: auto; }
+  .compass-legend{ font-size: 10.5px; color: var(--text-dim); margin-top: 6px; line-height:1.5; }
+
+  @media (max-width: 760px){
+    #panel{ width: calc(100vw - 32px); max-height: 50vh; }
+    #readout{ max-width: calc(100vw - 32px); }
+    #compass-wrap{ width: 120px; padding: 8px 10px; }
+    .compass-title{ font-size: 9px; }
+    input[type=range]{ height: 26px; } /* cible tactile plus grande */
+    .stage-btn{ min-height: 38px; display:flex; align-items:center; justify-content:center; }
+    #capture-btn{ bottom: 12px; padding: 12px 18px; }
+  }
+  @media (max-width: 480px){
+    #compass-wrap{ display: none; } /* trop à l'étroit à côté du panneau sur très petit écran */
+    #panel{ max-height: 42vh; }
+    #lang-switch{ right: 16px; }
+  }
+
+  #panel-toggle{
+    position: fixed; top: 16px; left: 16px; z-index: 15;
+    background: var(--panel-bg); border: 1px solid var(--panel-border); color: var(--text);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-radius: 10px; width: 40px; height: 40px; font-size: 18px; cursor:pointer;
+    display: none;
+  }
+  @media (max-width: 760px){
+    #panel-toggle{ display: block; }
+    #panel{ top: 64px; }
+  }
+  body.panel-collapsed #panel{ display: none; }
+
+  #lang-overlay{
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(5,8,14,0.88); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #lang-overlay.hidden{ display: none; }
+  .lang-card{
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 16px; padding: 32px 36px; text-align: center; max-width: 340px;
+  }
+  #lang-title{ font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+  #lang-subtitle{ font-size: 12.5px; color: var(--text-dim); margin-bottom: 20px; }
+  .lang-buttons{ display: flex; flex-direction: column; gap: 10px; }
+  .lang-choice{
+    background: rgba(111,183,255,0.14); border: 1px solid var(--accent); color: var(--text);
+    padding: 12px 16px; border-radius: 10px; font-size: 15px; cursor: pointer; font-weight: 600;
+  }
+  .lang-choice:hover{ background: rgba(111,183,255,0.26); }
+
+  #lang-switch{
+    position: fixed; top: 16px; right: 190px; z-index: 15;
+    background: var(--panel-bg); border: 1px solid var(--panel-border); color: var(--text);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-radius: 10px; padding: 8px 12px; font-size: 11.5px; font-weight:700; cursor:pointer;
+  }
+  body.capture-mode #lang-switch{ display: none; }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<button id="panel-toggle" title="Afficher/masquer les contrôles">☰</button>
+
+<div id="lang-overlay">
+  <div class="lang-card">
+    <div id="lang-title">Choisissez votre langue</div>
+    <div id="lang-subtitle">Vous pourrez changer à tout moment.</div>
+    <div class="lang-buttons">
+      <button class="lang-choice" data-lang="fr">🇫🇷 Français</button>
+      <button class="lang-choice" data-lang="en">🇬🇧 English</button>
+    </div>
+  </div>
+</div>
+
+<button id="lang-switch" title="Français / English">FR / EN</button>
+
+<div id="panel">
+  <h1 id="txt-h1">Genèse d'une tornade</h1>
+  <div class="subtitle" id="txt-subtitle">Bac à sable interactif — cadre de Markowski &amp; Richardson (2009, 2014) pour les tornades supercellulaires.</div>
+
+  <div class="stage-buttons" style="grid-template-columns: 1fr 1fr;">
+    <div class="stage-btn" data-stage="0">1. Cisaillement</div>
+    <div class="stage-btn" data-stage="1">2. Basculement</div>
+    <div class="stage-btn" data-stage="2">3. Vorticité RFD</div>
+    <div class="stage-btn" data-stage="3">4. Étirement</div>
+  </div>
+  <div class="stage-buttons" style="grid-template-columns: 1fr; margin-top:-2px;">
+    <div class="stage-btn" data-stage="4" id="autoplay-btn">▶ 5. Vue d'ensemble (lecture automatique)</div>
+  </div>
+
+  <div id="science-box">
+    <div class="sci-title" id="sci-title">—</div>
+    <div id="sci-text"></div>
+  </div>
+
+  <div id="sliders-container"></div>
+
+  <div class="legend">
+    <b id="txt-legend-title">Lecture des couleurs :</b><br>
+    <span style="color:#ffb86f">■</span> <span id="txt-legend-wind">vent/air chaud (surface, inflow)</span> &nbsp; <span style="color:#6fb7ff">■</span> <span id="txt-legend-altwind">vent d'altitude</span><br>
+    <span style="color:#7f9bd6">■</span> <span id="txt-legend-rfd">masse d'air froide (RFD), étapes 3-4</span><br>
+    <span id="txt-legend-particles">Particules : bleu translucide = air en rotation diffuse → blanc dense = condensation (tornade formée).</span>
+  </div>
+
+  <div class="group">
+    <div class="group-label" id="txt-display-label">Affichage</div>
+    <div class="toggle-row"><span id="txt-autorotate">Rotation auto de la caméra</span><input type="checkbox" id="autorotate" checked></div>
+    <div class="toggle-row"><span id="txt-showcurve">Afficher la courbe de contrôle</span><input type="checkbox" id="showcurve"></div>
+  </div>
+
+  <div id="model-warning">
+    <div class="mw-title" id="txt-mw-title">⚠ Modèle simplifié — pas une simulation physique</div>
+    <div class="mw-text" id="txt-mw-text">
+      Ceci illustre la LOGIQUE des mécanismes (Markowski &amp; Richardson 2009/2014 ; Klemp &amp; Rotunno 1983 ; Davies-Jones 2006), pas leur calcul réel. Pas d'équations de Navier-Stokes, pas de vraie thermodynamique, échelles et proportions non respectées, topologie RFD/inflow très simplifiée.
+    </div>
+  </div>
+</div>
+
+<div id="readout">
+  <span class="stage-name" id="ro-stage">—</span>
+  <span id="txt-ro-radius">Rayon du vortex : </span><b id="ro-radius">–</b><br>
+  <span id="txt-ro-spin">Vitesse de rotation : </span><b id="ro-spin">–</b><br>
+  <span id="txt-ro-L">Moment angulaire (∝ r²·ω) : </span><b id="ro-L">–</b>
+  <div id="txt-ro-shear-label" style="margin-top:8px; font-size:10.5px; color:var(--text-dim);">Cisaillement effectif</div>
+  <div class="gauge-wrap">
+    <div class="gauge-fill" id="ro-shear-fill"></div>
+    <div class="gauge-threshold"></div>
+  </div>
+  <div id="ro-shear-gate" style="color:#ffb86f; margin-top:4px; font-size:11px; line-height:1.4;"></div>
+</div>
+
+<button id="capture-btn" title="Lecture automatique plein écran, sans interface">🎬 Capture</button>
+<button id="exit-capture-btn" title="Quitter le mode capture">✕ Quitter la capture</button>
+
+<div id="compass-wrap">
+  <div class="compass-title" id="txt-compass-title">Direction des vents (vue du dessus)</div>
+  <svg id="compass" viewBox="0 0 140 140">
+    <circle cx="70" cy="70" r="60" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+    <line id="compass-surface" x1="70" y1="70" x2="130" y2="70" stroke="#ffb86f" stroke-width="4" stroke-linecap="round"/>
+    <line id="compass-altitude" x1="70" y1="70" x2="130" y2="70" stroke="#6fb7ff" stroke-width="4" stroke-linecap="round"/>
+  </svg>
+  <div class="compass-legend">
+    <span style="color:#ffb86f">■</span> <span id="txt-compass-surface">surface</span> &nbsp; <span style="color:#6fb7ff">■</span> <span id="txt-compass-altitude">altitude</span><br>
+    <span id="compass-angle-label">écart de direction : –</span>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   GENÈSE D'UNE TORNADE — Bac à sable pédagogique
+   ---------------------------------------------------------------------
+   REFONTE : l'étape 1 (cisaillement) ne part plus d'une "pose" pré-
+   dessinée qu'on module légèrement — elle est désormais ENTIÈREMENT
+   PILOTÉE par deux sliders de vent (surface / altitude). C'est leur
+   DIFFÉRENCE (vitesse + direction) qui construit directement le rouleau
+   horizontal, sans aucun nuage à l'écran : on isole ainsi la cause
+   (le cisaillement) de sa conséquence (la rotation), ce qui manquait
+   dans les versions précédentes.
+
+   Étape 2 (basculement) introduit le courant ascendant : il courbe le
+   rouleau horizontal vers le haut en son centre, et c'est à ce moment
+   seulement qu'un premier nuage (cumulus congestus) apparaît, car
+   physiquement l'existence d'un updraft implique une convection déjà
+   organisée.
+
+   Étapes 3 et 4 reprennent le cadre déjà en place (génération barocline
+   près du RFD, puis étirement/convergence par conservation du moment
+   angulaire) — cf. commentaires plus bas.
+   ===================================================================== */
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp01(t) { return Math.max(0, Math.min(1, t)); }
+function smooth01(t) { t = clamp01(t); return t * t * (3 - 2 * t); } // smoothstep, torsion moins "mécanique"
+let globalElapsed = 0; // mis à jour chaque frame dans animate() ; utilisé par setStage() avant que clock existe
+
+// ---------- Scène / caméra / renderer ----------
+const canvas = document.getElementById('scene');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x1c2740, 0.011);
+scene.background = new THREE.Color(0x2a3958);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+scene.add(new THREE.AmbientLight(0x8fa3c8, 1.3));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+dirLight.position.set(-8, 18, 8);
+scene.add(dirLight);
+const rimLight = new THREE.DirectionalLight(0xffcfa0, 0.5);
+rimLight.position.set(8, 6, -10);
+scene.add(rimLight);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 200),
+  new THREE.MeshStandardMaterial({ color: 0x2f3a2c, roughness: 1 })
+);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+const grid = new THREE.GridHelper(200, 40, 0x4a5a72, 0x30405a);
+grid.position.y = 0.01;
+scene.add(grid);
+
+
+/* =====================================================================
+   NUAGE — masqué entièrement à l'étape 1 (cisaillement pur, pas encore
+   d'orage). Apparaît progressivement dès l'étape 2 (cumulus congestus),
+   puis se développe en supercellule aux étapes suivantes.
+   ===================================================================== */
+const cloudGroup = new THREE.Group();
+scene.add(cloudGroup);
+const cloudMat = new THREE.MeshStandardMaterial({ color: 0xdbe4f0, roughness: 1, transparent: true, opacity: 0.4, depthWrite: false });
+const anvilMat = new THREE.MeshStandardMaterial({ color: 0xc9d4e6, roughness: 1, transparent: true, opacity: 0.3, depthWrite: false });
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x6b7488, roughness: 1, transparent: true, opacity: 0.5, depthWrite: false });
+
+const cloudBlobs = [];
+function addBlob(baseX, baseY, baseZ, baseRadius, role, mat, scaleXYZ) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), mat || cloudMat);
+  mesh.userData = { baseX, baseY, baseZ, baseRadius, role, scaleXYZ: scaleXYZ || [1,1,1] };
+  cloudGroup.add(mesh);
+  cloudBlobs.push(mesh);
+}
+// Cumulus congestus (tour convective) : apparaît à l'étape 2
+for (let i = 0; i < 9; i++) {
+  const a = (i / 9) * Math.PI * 2;
+  addBlob(Math.cos(a) * 2.6, 11, Math.sin(a) * 2.6, 2.1, 'tower');
+}
+addBlob(0.3, 14.5, -0.3, 2.6, 'tower');
+addBlob(0, 9, 0, 2.8, 'tower_base');
+
+// Enclume aplatie (supercellule mature, étape 3+)
+for (let i = 0; i < 16; i++) {
+  const a = (i / 16) * Math.PI * 2;
+  const r = 6.5 + Math.random() * 2;
+  addBlob(Math.cos(a) * r, 20, Math.sin(a) * r, 2.6, 'anvil', anvilMat, [1.3, 0.35, 1.3]);
+}
+// Wall cloud (étape 3+)
+for (let i = 0; i < 8; i++) {
+  const a = (i / 8) * Math.PI * 2;
+  addBlob(Math.cos(a) * 1.5, 7.8, Math.sin(a) * 1.5, 1.5, 'wallcloud', wallMat);
+}
+// Collar cloud (étape 3)
+for (let i = 0; i < 6; i++) {
+  const a = (i / 6) * Math.PI * 2;
+  addBlob(Math.cos(a) * 2.4, 9.2, Math.sin(a) * 2.4, 1.1, 'collar', wallMat);
+}
+
+/* =====================================================================
+   VECTEURS DE VENT — pilotent DIRECTEMENT le rouleau à l'étape 1.
+   Deux nappes de flèches horizontales à deux altitudes : orange (vent
+   de surface), bleu (vent d'altitude). Leur longueur = vitesse propre
+   de chaque slider ; leur écart d'angle = direction relative. C'est
+   cette différence vectorielle, et RIEN d'autre, qui définit la
+   vorticité horizontale initiale.
+   ===================================================================== */
+function makeWindArrow(color) {
+  const group = new THREE.Group();
+  const shaftGeo = new THREE.CylinderGeometry(0.05, 0.05, 1, 8);
+  shaftGeo.rotateZ(Math.PI / 2);
+  shaftGeo.translate(0.5, 0, 0);
+  const shaft = new THREE.Mesh(shaftGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 }));
+  const headGeo = new THREE.ConeGeometry(0.18, 0.5, 10);
+  headGeo.rotateZ(-Math.PI / 2);
+  const head = new THREE.Mesh(headGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 }));
+  head.position.x = 1;
+  group.add(shaft, head);
+  return group;
+}
+const lowWindArrows = [], highWindArrows = [];
+const windLevels = [-5, -1.7, 1.7, 5];
+windLevels.forEach(z => { const a = makeWindArrow(0xffb86f); a.position.set(-9, 1.6, z); scene.add(a); lowWindArrows.push(a); });
+windLevels.forEach(z => { const a = makeWindArrow(0x6fb7ff); a.position.set(-9, 6.5, z); scene.add(a); highWindArrows.push(a); });
+
+/* =====================================================================
+   COLONNE D'AIR CHAUD ASCENDANT — rend visible la CAUSE du basculement
+   (étape 2). Un flux continu de petites particules orangées monte du
+   sol vers le sommet du rouleau, en boucle, pour qu'on VOIE l'air chaud
+   "emporter" le cisaillement vers le haut plutôt que de simplement
+   observer le rouleau se tordre d'un coup.
+   ===================================================================== */
+const UPDRAFT_COUNT = 500;
+const updraftPositions = new Float32Array(UPDRAFT_COUNT * 3);
+const updraftPhases = [];
+for (let i = 0; i < UPDRAFT_COUNT; i++) {
+  updraftPhases.push({
+    phase: Math.random(),
+    radius: 0.3 + Math.random() * 1.6,
+    angle: Math.random() * Math.PI * 2,
+    speed: 0.15 + Math.random() * 0.15,
+  });
+}
+const updraftGeo = new THREE.BufferGeometry();
+updraftGeo.setAttribute('position', new THREE.BufferAttribute(updraftPositions, 3));
+const updraftMat = new THREE.PointsMaterial({
+  color: 0xffcf9a, size: 0.14, transparent: true, opacity: 0,
+  blending: THREE.AdditiveBlending, depthWrite: false,
+});
+const updraftStream = new THREE.Points(updraftGeo, updraftMat);
+scene.add(updraftStream);
+
+/* =====================================================================
+   MASSES D'AIR — RFD (froid) et INFLOW (chaud) — étapes 3 et 4.
+   Version enrichie : chaque masse porte désormais UNE ÉTIQUETTE TEXTE
+   (sprite qui fait toujours face à la caméra, donc lisible sous tout
+   angle) et PLUSIEURS flèches animées (au lieu d'une seule statique) qui
+   glissent doucement le long de leur propre axe pour suggérer un flux
+   continu plutôt qu'une simple pancarte immobile.
+   ===================================================================== */
+function makeLabelSprite(text, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(10,14,22,0.55)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = 'bold 30px Segoe UI, sans-serif';
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(3.2, 0.8, 1);
+  return sprite;
+}
+
+/* =====================================================================
+   INDICATEUR D'ÉCHELLE — les proportions de la scène sont abstraites
+   (le vortex mesure quelques unités, le nuage une vingtaine) : sans
+   repère, impossible de savoir si "1 unité" représente 10 m ou 1 km.
+   Convention adoptée ici : 1 unité de scène ≈ 100 m. Un petit immeuble
+   de référence (30 m, très inférieur à la taille du vortex même à son
+   rayon le plus large) et une barre graduée "500 m" ancrent l'échelle.
+   ===================================================================== */
+const SCENE_UNIT_METERS = 100;
+const scaleGroup = new THREE.Group();
+scaleGroup.position.set(-6.5, 0, 6.5);
+scene.add(scaleGroup);
+
+// Immeuble de référence (30 m de haut = 0.3 unité)
+const buildingH = 30 / SCENE_UNIT_METERS;
+const building = new THREE.Mesh(
+  new THREE.BoxGeometry(0.18, buildingH, 0.18),
+  new THREE.MeshStandardMaterial({ color: 0x50607a, roughness: 0.9 })
+);
+building.position.set(0, buildingH / 2, 0);
+scaleGroup.add(building);
+const buildingLabel = makeLabelSprite('immeuble ~30 m', '#cdd6e6');
+buildingLabel.scale.set(1.8, 0.45, 1);
+buildingLabel.position.set(0, buildingH + 0.35, 0);
+scaleGroup.add(buildingLabel);
+
+// Barre graduée horizontale (500 m = 5 unités)
+const barLenM = 500;
+const barLen = barLenM / SCENE_UNIT_METERS;
+const barGeo = new THREE.BufferGeometry().setFromPoints([
+  new THREE.Vector3(0.6, 0.05, 0), new THREE.Vector3(0.6 + barLen, 0.05, 0),
+]);
+const scaleBar = new THREE.Line(barGeo, new THREE.LineBasicMaterial({ color: 0xcdd6e6 }));
+scaleGroup.add(scaleBar);
+[0.6, 0.6 + barLen].forEach(x => {
+  const tick = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.18, 0.03), new THREE.MeshBasicMaterial({ color: 0xcdd6e6 }));
+  tick.position.set(x, 0.1, 0);
+  scaleGroup.add(tick);
+});
+const barLabel = makeLabelSprite('500 m', '#cdd6e6');
+barLabel.scale.set(1.2, 0.32, 1);
+barLabel.position.set(0.6 + barLen / 2, 0.5, 0);
+scaleGroup.add(barLabel);
+
+function makeAirMass(color, hexStr, label) {
+  const group = new THREE.Group();
+  const box = new THREE.Mesh(
+    new THREE.BoxGeometry(4.5, 1.1, 3.2),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false })
+  );
+  // Trois flèches à des positions/hauteurs légèrement différentes plutôt
+  // qu'une seule : ça se lit tout de suite comme "un flux", pas "un objet".
+  const arrows = [];
+  for (let i = 0; i < 3; i++) {
+    const arrow = makeWindArrow(color);
+    arrow.children.forEach(c => c.material.opacity = 0);
+    arrow.position.set(-1.2 + i * 1.2, 0.35 + (i % 2) * 0.5, (i - 1) * 0.9);
+    arrow.userData.baseX = arrow.position.x;
+    arrow.userData.phase = i / 3;
+    group.add(arrow);
+    arrows.push(arrow);
+  }
+  const sprite = makeLabelSprite(label, hexStr);
+  sprite.position.set(0, 1.6, 0);
+  group.add(sprite);
+
+  group.userData.arrows = arrows;
+  group.userData.box = box;
+  group.userData.sprite = sprite;
+  group.add(box);
+  return group;
+}
+const rfdMass = makeAirMass(0x7f9bd6, '#a9c0ea', 'RFD — air froid');
+const inflowMass = makeAirMass(0xffb86f, '#ffcf9a', 'Inflow — air chaud');
+scene.add(rfdMass, inflowMass);
+
+/* =====================================================================
+   COURANT DESCENDANT DU RFD — sans lui, rien ne montrait QUE l'air froid
+   vient du nuage (par les précipitations qui entraînent de l'air en
+   s'évaporant) avant de s'enrouler près du sol. Des particules bleu-gris
+   tombent depuis la base du nuage jusqu'à la masse d'air RFD, en boucle.
+   ===================================================================== */
+const RFD_DOWNDRAFT_COUNT = 260;
+const rfdDownPositions = new Float32Array(RFD_DOWNDRAFT_COUNT * 3);
+const rfdDownParams = [];
+for (let i = 0; i < RFD_DOWNDRAFT_COUNT; i++) {
+  rfdDownParams.push({
+    phase: Math.random(),
+    speed: 0.16 + Math.random() * 0.12,
+    rx: (Math.random() - 0.5) * 2.2,
+    rz: (Math.random() - 0.5) * 2.2,
+  });
+}
+const rfdDownGeo = new THREE.BufferGeometry();
+rfdDownGeo.setAttribute('position', new THREE.BufferAttribute(rfdDownPositions, 3));
+const rfdDownMat = new THREE.PointsMaterial({
+  color: 0x9fb6de, size: 0.13, transparent: true, opacity: 0,
+  blending: THREE.AdditiveBlending, depthWrite: false,
+});
+const rfdDowndraft = new THREE.Points(rfdDownGeo, rfdDownMat);
+scene.add(rfdDowndraft);
+
+function updateRfdDowndraft(elapsed) {
+  const posAttr = rfdDownGeo.attributes.position;
+  const topY = 9;                 // base du nuage
+  const bottomY = rfdMass.position.y + 0.3; // rejoint la masse d'air froide
+  for (let i = 0; i < RFD_DOWNDRAFT_COUNT; i++) {
+    const ph = rfdDownParams[i];
+    const y = ((ph.phase + elapsed * ph.speed) % 1);
+    posAttr.array[i*3+0] = rfdMass.position.x + ph.rx;
+    posAttr.array[i*3+1] = lerp(topY, bottomY, y);
+    posAttr.array[i*3+2] = rfdMass.position.z + ph.rz;
+  }
+  posAttr.needsUpdate = true;
+}
+
+/* =====================================================================
+   FLÈCHES D'INFLOW — étape 2 (basculement). Remplace l'ancien nuage de
+   particules diffuses par un petit nombre de flèches ORIENTÉES qui
+   montrent explicitement LE SENS du flux : elles convergent de loin vers
+   la base du tube, puis s'enroulent en suivant la courbe elle-même
+   (même logique de trajet en deux phases qu'avant), orientées à chaque
+   instant dans leur direction de déplacement. Plus lisible qu'un nuage
+   de points car on voit immédiatement "l'air va par là", pas juste "il y
+   a de l'air quelque part par ici".
+   ===================================================================== */
+const INFLOW_ARROW_COUNT = 14;
+const inflowArrows = [];
+const inflowArrowParams = [];
+for (let i = 0; i < INFLOW_ARROW_COUNT; i++) {
+  const arrow = makeWindArrow(0xffcf9a);
+  arrow.children.forEach(c => c.material.opacity = 0);
+  scene.add(arrow);
+  inflowArrows.push(arrow);
+  inflowArrowParams.push({
+    phase: i / INFLOW_ARROW_COUNT,
+    angle: Math.random() * Math.PI * 2,
+    outerR: 9 + Math.random() * 7,
+    speed: 0.07 + Math.random() * 0.04,
+    heightJitter: Math.random() * 1.2,
+  });
+}
+
+/* =====================================================================
+   VORTEX — particules sur courbe de Bézier quadratique.
+   ===================================================================== */
+const PARTICLE_COUNT = 4200;
+const positions = new Float32Array(PARTICLE_COUNT * 3);
+const colors = new Float32Array(PARTICLE_COUNT * 3);
+const particleParams = [];
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  const tBase = i / PARTICLE_COUNT;
+  const angle0 = Math.random() * Math.PI * 2;
+  const radiusJitter = 0.6 + Math.random() * 0.5;
+  const speedJitter = 0.8 + Math.random() * 0.6;
+  particleParams.push({ tBase, angle0, radiusJitter, speedJitter });
+  colors[i*3+0] = 1; colors[i*3+1] = 1; colors[i*3+2] = 1;
+}
+const particleGeo = new THREE.BufferGeometry();
+particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+const particleMat = new THREE.PointsMaterial({
+  size: 0.16, vertexColors: true, transparent: true, opacity: 0.75,
+  blending: THREE.AdditiveBlending, depthWrite: false,
+});
+const vortexPoints = new THREE.Points(particleGeo, particleMat);
+scene.add(vortexPoints);
+
+const p0 = new THREE.Vector3(-5, 3.5, 0);
+const p1 = new THREE.Vector3(0, 3.5, 0);
+const p2 = new THREE.Vector3(5, 3.5, 0);
+// Cibles calculées chaque frame à partir des sliders ; p0/p1/p2 les
+// rejoignent progressivement (lerp) plutôt que de sauter dessus — c'est
+// ce qui rend le basculement (et tout changement d'étape) fluide.
+const tgtP0 = new THREE.Vector3(-5, 3.5, 0);
+const tgtP1 = new THREE.Vector3(0, 3.5, 0);
+const tgtP2 = new THREE.Vector3(5, 3.5, 0);
+let curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
+
+const curveLineGeo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(40));
+const curveLine = new THREE.Line(curveLineGeo, new THREE.LineBasicMaterial({ color: 0xffb86f, transparent: true, opacity: 0.85 }));
+curveLine.visible = false;
+scene.add(curveLine);
+const handleGeo = new THREE.SphereGeometry(0.25, 8, 8);
+const handle0 = new THREE.Mesh(handleGeo, new THREE.MeshBasicMaterial({ color: 0xff6f6f }));
+const handle1 = new THREE.Mesh(handleGeo, new THREE.MeshBasicMaterial({ color: 0xffb86f }));
+const handle2 = new THREE.Mesh(handleGeo, new THREE.MeshBasicMaterial({ color: 0x6fffb8 }));
+[handle0, handle1, handle2].forEach(h => { h.visible = false; scene.add(h); });
+
+
+/* =====================================================================
+   LES 4 ÉTAPES
+   ===================================================================== */
+const STAGES_DATA = [
+  {
+    cloudStage: 0,
+    sliders: [
+      { id: 'windSurface', min: 0, max: 100, val: 30 },
+      { id: 'windAltitude', min: 0, max: 100, val: 75 },
+      { id: 'windAltitudeDir', min: -60, max: 60, val: 25 },
+    ],
+    i18n: {
+      fr: {
+        name: 'Cisaillement horizontal',
+        title: 'Étape 1 — D\'où vient la rotation ?',
+        text: `<p>Aucun orage n'existe encore. Seule une différence entre le vent de <b>surface</b> et le vent d'<b>altitude</b> — en vitesse ou en direction — est en jeu.</p>
+               <p>Cette différence vectorielle crée un <b>cisaillement vertical</b>, qui se traduit par une vorticité <b>horizontale</b> : l'air se met à rouler sur lui-même comme un tube couché, perpendiculairement à la direction du cisaillement.</p>
+               <p>Jouez sur les deux vents ci-dessous : plus ils diffèrent, plus le rouleau tourne vite.</p>`,
+        sliders: [
+          { label: 'Vent de surface', desc: 'Vitesse du vent près du sol (orange). Sert de référence de direction (vers l\'est, 0°).' },
+          { label: 'Vent d\'altitude', desc: 'Vitesse du vent en altitude (bleu).' },
+          { label: 'Direction du vent d\'altitude', desc: 'Angle du vent d\'altitude par rapport au vent de surface. En réalité, les deux vents n\'ont presque jamais exactement la même direction — regardez la boussole en haut à droite.' },
+        ],
+      },
+      en: {
+        name: 'Horizontal shear',
+        title: 'Stage 1 — Where does the rotation come from?',
+        text: `<p>No storm exists yet. Only a difference between the <b>surface</b> wind and the <b>upper-level</b> wind — in speed or direction — is at play.</p>
+               <p>This vector difference creates a <b>vertical wind shear</b>, which produces <b>horizontal</b> vorticity: the air starts rolling on itself like a horizontal tube, perpendicular to the shear direction.</p>
+               <p>Adjust the two winds below: the more they differ, the faster the roll spins.</p>`,
+        sliders: [
+          { label: 'Surface wind', desc: 'Wind speed near the ground (orange). Used as the direction reference (pointing east, 0°).' },
+          { label: 'Upper-level wind', desc: 'Wind speed aloft (blue).' },
+          { label: 'Upper-level wind direction', desc: 'Angle of the upper-level wind relative to the surface wind. In reality, the two winds almost never point in exactly the same direction — check the compass at top right.' },
+        ],
+      },
+    },
+  },
+  {
+    cloudStage: 1,
+    sliders: [
+      { id: 'updraft', min: 0, max: 100, val: 55 },
+    ],
+    i18n: {
+      fr: {
+        name: 'Basculement par l\'updraft',
+        title: 'Étape 2 — L\'orage bascule le rouleau',
+        text: `<p>De l'air chaud et humide se met à monter : c'est le <b>courant ascendant</b> (updraft) d'un orage en formation — un <b>cumulus congestus</b> apparaît.</p>
+               <p>Cet updraft <b>bascule</b> une portion du rouleau horizontal et la redresse en courbe vers la verticale : la vorticité, jusque-là horizontale, acquiert une composante verticale. C'est l'origine du futur mésocyclone.</p>`,
+        sliders: [
+          { label: 'Courant ascendant (updraft)', desc: 'Force de l\'aspiration verticale de l\'orage en formation, qui bascule la vorticité horizontale.' },
+        ],
+      },
+      en: {
+        name: 'Tilting by the updraft',
+        title: 'Stage 2 — The storm tilts the roll',
+        text: `<p>Warm, moist air starts rising: this is the <b>updraft</b> of a developing storm — a <b>cumulus congestus</b> appears.</p>
+               <p>This updraft <b>tilts</b> a portion of the horizontal roll, bending it upward toward the vertical: the vorticity, until now horizontal, gains a vertical component. This is the origin of the future mesocyclone.</p>`,
+        sliders: [
+          { label: 'Updraft', desc: 'Strength of the vertical suction of the developing storm, which tilts the horizontal vorticity.' },
+        ],
+      },
+    },
+  },
+  {
+    cloudStage: 2,
+    sliders: [
+      { id: 'rfd', min: 0, max: 100, val: 50 },
+      { id: 'baroclinic', min: 0, max: 100, val: 50 },
+    ],
+    i18n: {
+      fr: {
+        name: 'Vorticité près du sol (RFD)',
+        title: 'Étape 3 — Un second foyer, près du sol',
+        text: `<p>Le mésocyclone de mi-niveaux (3-6 km) est maintenant établi — mais il ne suffit pas à produire une tornade.</p>
+               <p>Près du sol, DEUX masses d'air distinctes entrent en jeu : l'<b style="color:#ffb86f">inflow</b> chaud et humide qui alimente l'orage par l'avant, et le <b style="color:#7f9bd6">RFD</b> (courant descendant arrière), plus frais, qui s'enroule par l'arrière. Leur contact génère une <b>nouvelle</b> vorticité horizontale, basculée à son tour à la verticale.</p>`,
+        sliders: [
+          { label: 'Intensité du RFD', desc: 'Vigueur du courant descendant arrière (masse bleue). Trop froid/fort, il peut aussi étouffer la tornade.' },
+          { label: 'Contraste de température', desc: 'Écart thermique entre l\'air froid du RFD et l\'air chaud de l\'inflow — source de la vorticité barocline.' },
+        ],
+      },
+      en: {
+        name: 'Near-surface vorticity (RFD)',
+        title: 'Stage 3 — A second source, near the ground',
+        text: `<p>The mid-level mesocyclone (3-6 km) is now established — but it isn't enough to produce a tornado.</p>
+               <p>Near the ground, TWO distinct air masses come into play: the warm, moist <b style="color:#ffb86f">inflow</b> feeding the storm from the front, and the cooler <b style="color:#7f9bd6">RFD</b> (rear-flank downdraft), which wraps around from behind. Their contact generates <b>new</b> horizontal vorticity, in turn tilted to the vertical.</p>`,
+        sliders: [
+          { label: 'RFD intensity', desc: 'Strength of the rear-flank downdraft (blue mass). Too cold/strong, it can also choke off the tornado.' },
+          { label: 'Temperature contrast', desc: 'Thermal difference between the cold RFD air and the warm inflow air — the source of baroclinic vorticity.' },
+        ],
+      },
+    },
+  },
+  {
+    cloudStage: 3,
+    sliders: [
+      { id: 'convergence', min: 0, max: 100, val: 55 },
+      { id: 'stretch', min: 0, max: 100, val: 60 },
+    ],
+    i18n: {
+      fr: {
+        name: 'Étirement / tornade',
+        title: 'Étape 4 — Conservation du moment angulaire',
+        text: `<p>Sous le mésocyclone de basse couche, l'<b style="color:#ffb86f">inflow</b> chaud continue de converger vers l'axe de rotation tout en étant aspiré vers le haut : le rayon du vortex se resserre, pendant que le <b style="color:#7f9bd6">RFD</b> achève de s'enrouler autour de la base.</p>
+               <p>Par <b>conservation du moment angulaire</b> (L ≈ r²·ω, comme un patineur qui ramène ses bras), ce resserrement <b>amplifie violemment</b> la rotation — jusqu'à former un vortex cohérent du sol au nuage : la tornade.</p>`,
+        sliders: [
+          { label: 'Convergence de l\'inflow', desc: 'Intensité de l\'afflux d\'air chaud vers l\'axe du vortex.' },
+          { label: 'Étirement vertical', desc: 'Degré de resserrement du rayon — pilote l\'accélération par conservation du moment angulaire.' },
+        ],
+      },
+      en: {
+        name: 'Stretching / tornado',
+        title: 'Stage 4 — Conservation of angular momentum',
+        text: `<p>Beneath the low-level mesocyclone, the warm <b style="color:#ffb86f">inflow</b> keeps converging toward the axis of rotation while being drawn upward: the vortex radius tightens, while the <b style="color:#7f9bd6">RFD</b> finishes wrapping around the base.</p>
+               <p>Through <b>conservation of angular momentum</b> (L ≈ r²·ω, like a skater pulling their arms in), this tightening <b>violently amplifies</b> the rotation — until a coherent vortex forms from the ground to the cloud: the tornado.</p>`,
+        sliders: [
+          { label: 'Inflow convergence', desc: 'Intensity of the warm air flow converging toward the vortex axis.' },
+          { label: 'Vertical stretching', desc: 'Degree of radius tightening — drives the acceleration through conservation of angular momentum.' },
+        ],
+      },
+    },
+  },
+  {
+    cloudStage: 3,
+    sliders: [],
+    i18n: {
+      fr: {
+        name: 'Vue d\'ensemble',
+        title: 'Étape 5 — La chaîne complète, en observateur',
+        text: `<p>Les quatre mécanismes précédents s'enchaînent maintenant automatiquement, du cisaillement initial jusqu'à la tornade établie — sans intervention de votre part.</p>
+               <p>Reprenez un bouton d'étape à tout moment pour revenir au contrôle manuel.</p>`,
+        sliders: [],
+      },
+      en: {
+        name: 'Overview',
+        title: 'Stage 5 — The full chain, as an observer',
+        text: `<p>The four previous mechanisms now unfold automatically, from the initial shear to the established tornado — with no input from you.</p>
+               <p>Click any stage button at any time to return to manual control.</p>`,
+        sliders: [],
+      },
+    },
+  },
+];
+
+function buildStagesForLang(lang) {
+  return STAGES_DATA.map(s => ({
+    cloudStage: s.cloudStage,
+    name: s.i18n[lang].name,
+    title: s.i18n[lang].title,
+    text: s.i18n[lang].text,
+    sliders: s.sliders.map((sl, i) => ({
+      id: sl.id, min: sl.min, max: sl.max, val: sl.val,
+      label: s.i18n[lang].sliders[i].label,
+      desc: s.i18n[lang].sliders[i].desc,
+    })),
+  }));
+}
+
+let LANG = 'fr';
+let STAGES = buildStagesForLang(LANG);
+
+const UI_TEXT = {
+  fr: {
+    h1: 'Genèse d\'une tornade',
+    subtitle: 'Bac à sable interactif — cadre de Markowski &amp; Richardson (2009, 2014) pour les tornades supercellulaires.',
+    stageButtons: ['1. Cisaillement', '2. Basculement', '3. Vorticité RFD', '4. Étirement'],
+    autoplayBtn: '▶ 5. Vue d\'ensemble (lecture automatique)',
+    paramsLabel: 'Paramètres physiques',
+    legendTitle: 'Lecture des couleurs :',
+    legendWind: 'vent/air chaud (surface, inflow)',
+    legendAltWind: 'vent d\'altitude',
+    legendRfd: 'masse d\'air froide (RFD), étapes 3-4',
+    legendParticles: 'Particules : bleu translucide = air en rotation diffuse → blanc dense = condensation (tornade formée).',
+    displayLabel: 'Affichage',
+    autorotateLabel: 'Rotation auto de la caméra',
+    showcurveLabel: 'Afficher la courbe de contrôle',
+    modelWarningTitle: '⚠ Modèle simplifié — pas une simulation physique',
+    modelWarningText: 'Ceci illustre la LOGIQUE des mécanismes (Markowski &amp; Richardson 2009/2014 ; Klemp &amp; Rotunno 1983 ; Davies-Jones 2006), pas leur calcul réel. Pas d\'équations de Navier-Stokes, pas de vraie thermodynamique, échelles et proportions non respectées, topologie RFD/inflow très simplifiée.',
+    compassTitle: 'Direction des vents (vue du dessus)',
+    compassSurface: 'surface',
+    compassAltitude: 'altitude',
+    compassAnglePrefix: 'écart de direction : ',
+    roRadius: 'Rayon du vortex : ',
+    roSpin: 'Vitesse de rotation : ',
+    roL: 'Moment angulaire (∝ r²·ω) : ',
+    roShearLabel: 'Cisaillement effectif',
+    roShearWarning: '⚠ pas assez de cisaillement — rien ne peut se développer',
+    autoplayNote: '▶ Lecture automatique en cours…<br>Cliquez sur une étape pour reprendre la main.',
+    captureBtn: '🎬 Capture',
+    captureTitle: 'Lecture automatique plein écran, sans interface',
+    exitCaptureBtn: '✕ Quitter la capture',
+    exitCaptureTitle: 'Quitter le mode capture',
+    panelToggleTitle: 'Afficher/masquer les contrôles',
+    langOverlayTitle: 'Choisissez votre langue',
+    langOverlaySubtitle: 'Vous pourrez changer à tout moment.',
+  },
+  en: {
+    h1: 'Genesis of a Tornado',
+    subtitle: 'Interactive sandbox — based on Markowski &amp; Richardson\'s (2009, 2014) framework for supercell tornadoes.',
+    stageButtons: ['1. Shear', '2. Tilting', '3. RFD vorticity', '4. Stretching'],
+    autoplayBtn: '▶ 5. Overview (auto-play)',
+    paramsLabel: 'Physical parameters',
+    legendTitle: 'Colour key:',
+    legendWind: 'warm wind/air (surface, inflow)',
+    legendAltWind: 'upper-level wind',
+    legendRfd: 'cold air mass (RFD), stages 3-4',
+    legendParticles: 'Particles: translucent blue = diffuse rotating air → dense white = condensation (tornado formed).',
+    displayLabel: 'Display',
+    autorotateLabel: 'Auto camera rotation',
+    showcurveLabel: 'Show control curve',
+    modelWarningTitle: '⚠ Simplified model — not a physical simulation',
+    modelWarningText: 'This illustrates the LOGIC of the mechanisms (Markowski &amp; Richardson 2009/2014; Klemp &amp; Rotunno 1983; Davies-Jones 2006), not their actual computation. No Navier-Stokes equations, no real thermodynamics, scales and proportions not respected, RFD/inflow topology heavily simplified.',
+    compassTitle: 'Wind direction (top view)',
+    compassSurface: 'surface',
+    compassAltitude: 'altitude',
+    compassAnglePrefix: 'direction difference: ',
+    roRadius: 'Vortex radius: ',
+    roSpin: 'Rotation speed: ',
+    roL: 'Angular momentum (∝ r²·ω): ',
+    roShearLabel: 'Effective shear',
+    roShearWarning: '⚠ not enough shear — nothing can develop',
+    autoplayNote: '▶ Auto-play in progress…<br>Click any stage to take back control.',
+    captureBtn: '🎬 Capture',
+    captureTitle: 'Full-screen auto-play, no interface',
+    exitCaptureBtn: '✕ Exit capture',
+    exitCaptureTitle: 'Exit capture mode',
+    panelToggleTitle: 'Show/hide controls',
+    langOverlayTitle: 'Choose your language',
+    langOverlaySubtitle: 'You can change this at any time.',
+  },
+};
+
+
+let currentStage = 0;
+let tubeRadius = 1.4;
+let spinSpeed = 1.0;
+let flowIntensity = 1.0;
+let windArrowOpacity = 1.0; // lissé progressivement, cf. updateSceneFromSliders()
+let inflowArrowOpacity = 0;
+let massOpacityState = 0;
+let condensationState = 0;
+const inflowArrowsData = {};
+let sliderValues = {};
+STAGES.forEach(st => st.sliders.forEach(sl => {
+  sliderValues[sl.id] = sl.id === 'windAltitudeDir' ? sl.val : sl.val / 100;
+}));
+
+const sliderContainer = document.getElementById('sliders-container');
+function buildSlidersForStage(stageIndex) {
+  sliderContainer.innerHTML = '';
+  const stage = STAGES[stageIndex];
+  const group = document.createElement('div');
+  group.className = 'group';
+  const label = document.createElement('div');
+  label.className = 'group-label';
+  label.textContent = UI_TEXT[LANG].paramsLabel;
+  group.appendChild(label);
+
+  stage.sliders.forEach(sl => {
+    const isAngle = sl.id === 'windAltitudeDir';
+    const desc = document.createElement('div');
+    desc.className = 'group-desc';
+    desc.innerHTML = `<b style="color:var(--text)">${sl.label}</b><br>${sl.desc}`;
+    group.appendChild(desc);
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    const initialLabel = isAngle ? (sliderValues[sl.id] > 0 ? '+' : '') + sliderValues[sl.id] + '°' : Math.round(sliderValues[sl.id]*100) + '%';
+    row.innerHTML = `<span></span><span class="val" id="val-${sl.id}">${initialLabel}</span>`;
+    group.appendChild(row);
+
+    const input = document.createElement('input');
+    input.type = 'range'; input.min = sl.min; input.max = sl.max;
+    input.value = isAngle ? sliderValues[sl.id] : Math.round(sliderValues[sl.id] * 100);
+    input.addEventListener('input', () => {
+      sliderValues[sl.id] = isAngle ? parseInt(input.value, 10) : input.value / 100;
+      const lbl = isAngle ? (input.value > 0 ? '+' : '') + input.value + '°' : input.value + '%';
+      document.getElementById('val-' + sl.id).textContent = lbl;
+    });
+    group.appendChild(input);
+  });
+  sliderContainer.appendChild(group);
+}
+
+const stageButtons = document.querySelectorAll('.stage-btn');
+let autoplayActive = false;
+let autoplayStart = 0;
+let autoplayPhaseShown = -1;
+
+function applyStageText(stageIndex) {
+  const stage = STAGES[stageIndex];
+  const box = document.getElementById('science-box');
+  box.style.opacity = '0';
+  setTimeout(() => {
+    document.getElementById('sci-title').textContent = stage.title;
+    document.getElementById('sci-text').innerHTML = stage.text;
+    document.getElementById('ro-stage').textContent = stage.name;
+    box.style.opacity = '1';
+  }, 220);
+}
+
+function setStage(stageIndex) {
+  stageButtons.forEach((btn, i) => btn.classList.toggle('active', i === stageIndex));
+
+  if (stageIndex === 4) {
+    // --- Mode "vue d'ensemble" : plus de contrôle manuel, on regarde
+    // l'enchaînement se dérouler tout seul. currentStage continue d'être
+    // piloté en interne (0 → 3) par updateAutoplay() ci-dessous, qui
+    // réutilise TELLE QUELLE toute la physique déjà écrite pour le mode
+    // manuel — seule la SOURCE des valeurs de sliders change (une
+    // fonction du temps au lieu de la souris).
+    autoplayActive = true;
+    autoplayStart = globalElapsed;
+    autoplayPhaseShown = -1;
+    applyStageText(4);
+    sliderContainer.innerHTML = '<div class="group-desc" style="text-align:center; padding:6px 0;">' + UI_TEXT[LANG].autoplayNote + '</div>';
+    return;
+  }
+
+  autoplayActive = false;
+  currentStage = stageIndex;
+  // On revient toujours à cette étape avec ses sliders remis à leur
+  // valeur par défaut — sans ça, une valeur modifiée puis "oubliée" en
+  // changeant d'étape restait bizarrement en mémoire au retour.
+  STAGES[stageIndex].sliders.forEach(sl => {
+    sliderValues[sl.id] = sl.id === 'windAltitudeDir' ? sl.val : sl.val / 100;
+  });
+  applyStageText(stageIndex);
+  buildSlidersForStage(stageIndex);
+}
+stageButtons.forEach((btn, i) => btn.addEventListener('click', () => setStage(i)));
+
+// ---------- Langue ----------
+function applyLanguage(lang) {
+  LANG = lang;
+  STAGES = buildStagesForLang(lang);
+  const t = UI_TEXT[lang];
+
+  document.getElementById('txt-h1').textContent = t.h1;
+  document.getElementById('txt-subtitle').innerHTML = t.subtitle;
+  stageButtons.forEach((btn, i) => { if (i < 4) btn.textContent = t.stageButtons[i]; });
+  document.getElementById('autoplay-btn').textContent = t.autoplayBtn;
+  document.getElementById('txt-legend-title').textContent = t.legendTitle;
+  document.getElementById('txt-legend-wind').textContent = t.legendWind;
+  document.getElementById('txt-legend-altwind').textContent = t.legendAltWind;
+  document.getElementById('txt-legend-rfd').textContent = t.legendRfd;
+  document.getElementById('txt-legend-particles').textContent = t.legendParticles;
+  document.getElementById('txt-display-label').textContent = t.displayLabel;
+  document.getElementById('txt-autorotate').textContent = t.autorotateLabel;
+  document.getElementById('txt-showcurve').textContent = t.showcurveLabel;
+  document.getElementById('txt-mw-title').textContent = t.modelWarningTitle;
+  document.getElementById('txt-mw-text').innerHTML = t.modelWarningText;
+  document.getElementById('txt-compass-title').textContent = t.compassTitle;
+  document.getElementById('txt-compass-surface').textContent = t.compassSurface;
+  document.getElementById('txt-compass-altitude').textContent = t.compassAltitude;
+  document.getElementById('txt-ro-radius').textContent = t.roRadius;
+  document.getElementById('txt-ro-spin').textContent = t.roSpin;
+  document.getElementById('txt-ro-L').textContent = t.roL;
+  document.getElementById('txt-ro-shear-label').textContent = t.roShearLabel;
+  document.getElementById('capture-btn').textContent = t.captureBtn;
+  document.getElementById('capture-btn').title = t.captureTitle;
+  document.getElementById('exit-capture-btn').textContent = t.exitCaptureBtn;
+  document.getElementById('exit-capture-btn').title = t.exitCaptureTitle;
+  document.getElementById('panel-toggle').title = t.panelToggleTitle;
+  document.getElementById('lang-title').textContent = t.langOverlayTitle;
+  document.getElementById('lang-subtitle').textContent = t.langOverlaySubtitle;
+
+  // Rafraîchit le contenu déjà affiché (texte d'étape / sliders) dans la nouvelle langue
+  if (autoplayActive) {
+    applyStageText(autoplayPhaseShown >= 0 ? autoplayPhaseShown : 0);
+    sliderContainer.innerHTML = '<div class="group-desc" style="text-align:center; padding:6px 0;">' + t.autoplayNote + '</div>';
+  } else {
+    applyStageText(currentStage);
+    buildSlidersForStage(currentStage);
+  }
+}
+
+document.querySelectorAll('.lang-choice').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyLanguage(btn.dataset.lang);
+    document.getElementById('lang-overlay').classList.add('hidden');
+  });
+});
+document.getElementById('lang-switch').addEventListener('click', () => {
+  applyLanguage(LANG === 'fr' ? 'en' : 'fr');
+});
+
+applyLanguage('fr'); // valeurs par défaut affichées derrière l'overlay le temps du choix
+setStage(0);
+
+// ---------- Mode capture : plein écran, interface masquée, autoplay depuis le début ----------
+const captureBtn = document.getElementById('capture-btn');
+const exitCaptureBtn = document.getElementById('exit-capture-btn');
+
+function enterCaptureMode() {
+  document.body.classList.add('capture-mode');
+  setStage(4); // relance l'autoplay depuis le tout début
+  const el = document.documentElement;
+  if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+}
+function exitCaptureMode() {
+  document.body.classList.remove('capture-mode');
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+}
+captureBtn.addEventListener('click', enterCaptureMode);
+exitCaptureBtn.addEventListener('click', exitCaptureMode);
+// Si l'utilisateur quitte le plein écran via Echap, on restaure l'interface aussi
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) document.body.classList.remove('capture-mode');
+});
+
+// ---------- Panneau repliable (mobile) ----------
+document.getElementById('panel-toggle').addEventListener('click', () => {
+  document.body.classList.toggle('panel-collapsed');
+});
+if (window.innerWidth <= 760) document.body.classList.add('panel-collapsed'); // replié par défaut sur petit écran
+
+const autorotateEl = document.getElementById('autorotate');
+const showcurveEl = document.getElementById('showcurve');
+showcurveEl.addEventListener('change', () => {
+  curveLine.visible = showcurveEl.checked;
+  handle0.visible = handle1.visible = handle2.visible = showcurveEl.checked;
+});
+
+let manualAngle = 0.4;
+let isDragging = false, lastMouseX = 0;
+canvas.addEventListener('pointerdown', (e) => { isDragging = true; lastMouseX = e.clientX; autorotateEl.checked = false; });
+window.addEventListener('pointerup', () => { isDragging = false; });
+window.addEventListener('pointermove', (e) => { if (!isDragging) return; manualAngle += (e.clientX - lastMouseX) * 0.005; lastMouseX = e.clientX; });
+const cameraTarget = new THREE.Vector3(0, 6, 0);
+
+function v(id, fallback) { return sliderValues[id] !== undefined ? sliderValues[id] : fallback; }
+
+// ---------- Boussole (encart haut-droite) ----------
+const compassSurfaceLine = document.getElementById('compass-surface');
+const compassAltitudeLine = document.getElementById('compass-altitude');
+const compassAngleLabel = document.getElementById('compass-angle-label');
+const roShearGateEl = document.getElementById('ro-shear-gate');
+const roShearFillEl = document.getElementById('ro-shear-fill');
+function updateCompass(windSurface, windAltitude, dirDeg) {
+  const cx = 70, cy = 70;
+  const surfLen = 20 + windSurface * 45;
+  const altLen = 20 + windAltitude * 45;
+  const rad = dirDeg * Math.PI / 180;
+  compassSurfaceLine.setAttribute('x2', cx + surfLen);
+  compassSurfaceLine.setAttribute('y2', cy);
+  compassAltitudeLine.setAttribute('x2', cx + altLen * Math.cos(rad));
+  compassAltitudeLine.setAttribute('y2', cy + altLen * Math.sin(rad));
+  compassAngleLabel.textContent = UI_TEXT[LANG].compassAnglePrefix + (dirDeg > 0 ? '+' : '') + dirDeg + '°';
+}
+
+/* =====================================================================
+   MISE À JOUR DE LA SCÈNE
+   ===================================================================== */
+function updateSceneFromSliders() {
+  const windSurface = v('windSurface', 0.3);
+  const windAltitude = v('windAltitude', 0.75);
+  const windAltitudeDir = v('windAltitudeDir', 25); // degrés
+  let updraft = v('updraft', 0);
+  let rfd = v('rfd', 0);
+  let baroclinic = v('baroclinic', 0);
+  let convergence = v('convergence', 0);
+  let stretch = v('stretch', 0);
+
+  // --- Cisaillement VECTORIEL : le vent de surface pointe par convention
+  // vers l'est (0°) ; le vent d'altitude a sa propre direction, réglable
+  // indépendamment. Le cisaillement est la différence de ces deux
+  // vecteurs — pas seulement un écart de vitesse.
+  const dirRad = windAltitudeDir * Math.PI / 180;
+  const sVecX = windSurface, sVecY = 0;
+  const aVecX = windAltitude * Math.cos(dirRad), aVecY = windAltitude * Math.sin(dirRad);
+  const shearRaw = Math.sqrt((aVecX - sVecX) ** 2 + (aVecY - sVecY) ** 2);
+  const shear = clamp01(shearRaw * 0.9); // pas de plancher : vents identiques => shear = 0, tube plat et immobile
+  updateCompass(windSurface, windAltitude, windAltitudeDir);
+
+  // --- Le cisaillement est un PRÉREQUIS, pas juste l'ingrédient de
+  // l'étape 1 : sans lui, rien de tout ce qui suit ne devrait pouvoir se
+  // développer, même si on pousse à fond les curseurs des étapes
+  // suivantes. shearGate vaut 0 en dessous d'un cisaillement quasi nul,
+  // et atteint 1 dès qu'un cisaillement modeste existe — c'est lui qui
+  // "débloque" le basculement, le RFD et l'étirement.
+  const shearGate = smooth01((shear - 0.04) / 0.16);
+  updraft *= shearGate;
+  rfd *= shearGate;
+  baroclinic *= shearGate;
+  convergence *= shearGate;
+  stretch *= shearGate;
+
+  roShearGateEl.textContent = shear < 0.04
+    ? '⚠ pas assez de cisaillement — rien ne peut se développer'
+    : '';
+  roShearFillEl.style.width = clamp01(shear) * 100 + '%';
+  roShearFillEl.style.background = shear < 0.04
+    ? '#ff6f6f'
+    : 'linear-gradient(90deg, #6fb7ff, #6fffb8)';
+
+  // --- Étape 1 : le rouleau horizontal est construit DIRECTEMENT à
+  // partir du cisaillement vectoriel. Sans cisaillement (shear≈0), le
+  // rouleau doit visiblement DISPARAÎTRE en tant que structure tournante :
+  // court, aplati (rayon quasi nul plus bas) et immobile — pas juste
+  // "plus petit". C'est ce qui manquait : rien ne distinguait avant un
+  // cisaillement faible d'une absence totale de cisaillement.
+  const rollHalfLength = lerp(0.5, 6, shear);
+  tgtP0.set(-rollHalfLength, 3.2, -aVecY * 0.7);
+  tgtP1.set(0, 3.2, aVecY * 0.9);
+  tgtP2.set(rollHalfLength, 3.2, -aVecY * 0.2);
+
+  // --- Étape 2 : coude classique "sol → nuage". Au lieu de faire migrer
+  // p0/p1/p2 chacun dans des directions différentes (ce qui faisait
+  // repartir le sommet vers la gauche), on utilise la construction
+  // géométrique d'un virage à angle droit adouci par la Bézier :
+  //   - p0 reste bas, à l'extrémité gauche du rouleau (tangente initiale
+  //     horizontale, car p0→p1 est horizontal) ;
+  //   - p1 glisse vers un point de "coude" (même hauteur que p0, mais
+  //     décalé vers la droite) ;
+  //   - p2 monte À LA VERTICALE DE CE MÊME COUDE (même x que p1), donc
+  //     la tangente finale est verticale : le haut ne repart jamais vers
+  //     la gauche, il continue tout droit vers le nuage.
+  // Un léger décalage en z sur p1 seulement ajoute un soupçon de
+  // tridimensionnalité sans perturber cette trajectoire bas → haut.
+  if (currentStage >= 1) {
+    // On utilise directement la valeur réelle du slider (qui persiste
+    // telle quelle après avoir quitté son étape) plutôt que de la forcer
+    // à 1 dès qu'on change d'étape : sans ça, quitter l'étape 2 avant que
+    // "updraft" ait atteint 100% provoquait un saut brusque de la cible.
+    const u = updraft;
+    const uS = smooth01(u);
+    const elbowX = 2.2; // position horizontale du coude (fixe, sert d'ancre commune à p1 et p2)
+
+    tgtP0.x = lerp(tgtP0.x, -6, uS);
+    tgtP0.y = lerp(3.2, 3.6, uS * 0.2);
+
+    tgtP1.x = lerp(tgtP1.x, elbowX, uS);
+    tgtP1.y = lerp(3.2, 3.4, uS * 0.2); // reste bas : c'est lui qui donne la tangente horizontale au départ
+    tgtP1.z = lerp(tgtP1.z, 1.8, uS);
+
+    tgtP2.x = lerp(tgtP2.x, elbowX, uS); // même x que p1 → tangente finale verticale, pas de retour vers la gauche
+    tgtP2.y = lerp(3.2, 16, uS);
+    tgtP2.z = lerp(tgtP2.z, 0, uS);
+  }
+  // --- Étape 3 : un second foyer de vorticité près du sol (RFD) déforme p0
+  if (currentStage >= 2) {
+    // Même principe : on garde la valeur réelle des sliders au lieu de
+    // les forcer à 1 en quittant l'étape 3.
+    const r = rfd;
+    const b = baroclinic;
+    tgtP0.x += lerp(0, 2.2, r);
+    tgtP0.z += lerp(0, 1.4, b);
+    tgtP0.y = lerp(tgtP0.y, 5.5, r * 0.5);
+  }
+  // --- Étape 4 : convergence + étirement vers le sol
+  let squeeze = 0;
+  if (currentStage === 3) {
+    tgtP0.x = lerp(tgtP0.x, tgtP0.x * 0.15, convergence);
+    tgtP0.z = lerp(tgtP0.z, tgtP0.z * 0.15, convergence);
+    tgtP0.y = lerp(tgtP0.y, 0, stretch);
+    tgtP1.x = lerp(tgtP1.x, 0.1, stretch * 0.7);
+    tgtP2.x = lerp(tgtP2.x, 0, stretch * 0.5);
+    squeeze = clamp01(convergence * 0.5 + stretch * 0.9);
+  }
+
+  // --- p0/p1/p2 rejoignent leur cible progressivement. Rythme plus lent
+  // à l'étape 2 (basculement) pour bien voir le pli se former ; plus
+  // réactif ailleurs pour rester agréable au toucher des sliders.
+  const poseRate = currentStage === 1 ? 0.016 : 0.05;
+  p0.lerp(tgtP0, poseRate);
+  p1.lerp(tgtP1, poseRate);
+  p2.lerp(tgtP2, poseRate);
+
+  curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
+  if (showcurveEl.checked) {
+    curveLineGeo.setFromPoints(curve.getPoints(40));
+    handle0.position.copy(p0); handle1.position.copy(p1); handle2.position.copy(p2);
+  }
+
+  // --- Physique : rayon/vitesse ---
+  // À l'étape 1, le rayon est directement proportionnel au cisaillement :
+  // shear=0 => rayon quasi nul => le nuage de particules s'aplatit en
+  // une fine ligne, visuellement "rien ne tourne".
+  const shearRadiusFactor = currentStage === 0 ? lerp(0.03, 1, shear) : 1;
+  const tubeRadiusTarget = lerp(1.5, 0.32, squeeze) * shearRadiusFactor;
+  tubeRadius = lerp(tubeRadius, tubeRadiusTarget, 0.045); // lissé : plus de saut de rayon en changeant d'étape
+  const baseSpin = lerp(0, 1.8, shear * 0.55 + updraft * 0.2 + rfd * 0.25);
+  const spinSpeedTarget = baseSpin + lerp(0, 6.2, Math.pow(squeeze, 1.4));
+  spinSpeed = lerp(spinSpeed, spinSpeedTarget, 0.045); // idem pour la vitesse de rotation
+  // Le glissement des particules le long de la courbe (indépendant de la
+  // rotation) doit lui aussi s'arrêter quand rien ne se passe à l'étape 1.
+  flowIntensity = currentStage === 0 ? shear : 1;
+
+  // --- Apparence du vortex : air diffus (bleu translucide) -> condensation
+  // (blanc dense). La cible dépend de l'étape (donc changerait par paliers),
+  // mais la valeur RÉELLE la rejoint en douceur pour ne jamais sauter.
+  const condensationTarget = clamp01(currentStage / 3 * 0.5 + squeeze * 0.65);
+  condensationState = lerp(condensationState, condensationTarget, 0.03);
+  particleMat.opacity = lerp(0.3, 0.95, condensationState);
+  particleMat.size = lerp(0.12, 0.22, condensationState);
+  particleMat.color.setRGB(lerp(0.55,1,condensationState), lerp(0.68,1,condensationState), lerp(0.9,1,condensationState));
+
+  // --- Vecteurs de vent : moteur visuel de l'étape 1. Leur opacité
+  // s'estompe désormais EN DOUCEUR (lerp persistant) au lieu de sauter
+  // instantanément de 1.0 à 0.22 pile au changement d'étape — c'était la
+  // cause principale du "à-coup" ressenti entre cisaillement et basculement.
+  const windOpacityTarget = currentStage === 0 ? 1.0 : 0.22;
+  windArrowOpacity = lerp(windArrowOpacity, windOpacityTarget, 0.045);
+  const lowLen = lerp(1.5, 5, windSurface);
+  const highLen = lerp(1.5, 8, windAltitude);
+  lowWindArrows.forEach(a => { a.scale.set(lowLen,1,1); a.rotation.y = 0; a.children.forEach(c=>c.material.opacity=windArrowOpacity*0.9); });
+  highWindArrows.forEach(a => { a.scale.set(highLen,1,1); a.rotation.y = -dirRad; a.children.forEach(c=>c.material.opacity=windArrowOpacity); });
+
+  // --- Colonne d'air chaud ascendant : sa cible d'opacité dépend de
+  // l'étape, mais l'opacité RÉELLE la rejoint toujours progressivement
+  // (même logique que les flèches) — plus d'apparition en "pop" au tout
+  // premier instant de l'étape 2.
+  const updraftOpacityTarget = currentStage === 1 ? lerp(0.15, 0.8, updraft) : 0;
+  updraftMat.opacity = lerp(updraftMat.opacity, updraftOpacityTarget, 0.05);
+  updraftStream.userData.center = p1;
+  updraftStream.userData.topY = currentStage === 1 ? lerp(4, 16, updraft) : 16;
+
+  // --- Flèches d'inflow : même cible d'opacité que l'ancien système,
+  // lissée progressivement (cf. flèches de vent plus haut).
+  const inflowOpacityTarget = currentStage === 1 ? lerp(0.25, 1.0, updraft) : 0;
+  inflowArrowOpacity = lerp(inflowArrowOpacity, inflowOpacityTarget, 0.05);
+  inflowArrowsData.target = p0;
+  inflowArrowsData.speedScale = lerp(0.5, 1.8, updraft);
+
+  // --- Masses d'air (RFD / inflow) : visibles aux étapes 3 et 4, avec
+  // une opacité nettement plus lisible (avant : plafonnée à 0.28, quasi
+  // invisible) et un fondu lissé pour éviter tout saut.
+  const showMasses = currentStage >= 2;
+  const massOpacityTarget = currentStage === 2 ? lerp(0.08, 0.55, Math.max(rfd, baroclinic))
+                     : currentStage === 3 ? lerp(0.5, 0.3, clamp01(convergence*0.5+stretch*0.5))
+                     : 0;
+  massOpacityState = lerp(massOpacityState, showMasses ? massOpacityTarget : 0, 0.05);
+  rfdMass.userData.box.material.opacity = massOpacityState;
+  inflowMass.userData.box.material.opacity = massOpacityState * 1.05;
+  rfdMass.userData.sprite.material.opacity = clamp01(massOpacityState * 2.4);
+  inflowMass.userData.sprite.material.opacity = clamp01(massOpacityState * 2.4);
+  const arrowOpacity = clamp01(massOpacityState * 2.8);
+
+  // Chaque flèche glisse doucement le long de son propre axe (va-et-vient)
+  // pour suggérer un flux continu plutôt qu'une flèche statique plantée là.
+  rfdMass.userData.arrows.forEach(a => {
+    a.position.x = a.userData.baseX + Math.sin(globalElapsed * 0.9 + a.userData.phase * 6.28) * 0.35;
+    a.children.forEach(c => c.material.opacity = arrowOpacity);
+  });
+  inflowMass.userData.arrows.forEach(a => {
+    a.position.x = a.userData.baseX - Math.sin(globalElapsed * 0.9 + a.userData.phase * 6.28) * 0.35;
+    a.children.forEach(c => c.material.opacity = arrowOpacity);
+  });
+
+  // Le RFD s'enroule par l'arrière-droite, l'inflow alimente par l'avant-gauche
+  const massCenter = p0;
+  rfdMass.position.set(massCenter.x + 3.6, 1.3, massCenter.z - 2.7);
+  rfdMass.rotation.y = -0.8;
+  inflowMass.position.set(massCenter.x - 3.8, 1.3, massCenter.z + 1.8);
+  inflowMass.rotation.y = 0.4;
+  rfdDownMat.opacity = massOpacityState * 1.6;
+
+  // --- Nuage : visibilité par rôle selon cloudStage courant ---
+  const stageN = currentStage;
+  // --- Nuage : la CIBLE de forme (scale/position) change par paliers
+  // selon l'étape (comme avant), mais on ne l'applique plus jamais
+  // directement — chaque blob lisse sa propre transition vers cette
+  // cible (mémorisée dans son userData), pour ne jamais sauter quand une
+  // étape franchit un seuil binaire (ex. l'enclume qui apparaissait d'un
+  // coup entre les étapes 2 et 3).
+  cloudBlobs.forEach((mesh) => {
+    const { baseX, baseY, baseZ, baseRadius, role, scaleXYZ } = mesh.userData;
+    let targetScale = 0;
+    let targetPos = [baseX, baseY, baseZ];
+
+    if (role === 'tower' || role === 'tower_base') {
+      const grow = stageN === 1 ? updraft : (stageN >= 1 ? 1 : 0);
+      targetScale = clamp01(lerp(0, 1.05, grow));
+    } else if (role === 'anvil') {
+      const grow = stageN >= 2 ? 1 : 0;
+      targetScale = clamp01(grow);
+      const spread = 1.15;
+      targetPos = [baseX*spread, baseY, baseZ*spread];
+    } else if (role === 'collar') {
+      const grow = stageN === 2 ? Math.max(rfd,0.25) : (stageN >= 2 ? 1 : 0);
+      targetScale = clamp01(grow);
+    } else if (role === 'wallcloud') {
+      const grow = stageN >= 2 ? clamp01((stageN===2? rfd*0.6+baroclinic*0.3 : 1) + (stageN===3? squeeze*0.3:0) + 0.1) : 0;
+      targetScale = grow;
+      targetPos = [baseX, lerp(baseY, baseY-2.2, stageN===3?clamp01(convergence+stretch):(stageN>=2?0.4:0)), baseZ];
+    }
+
+    const ud = mesh.userData;
+    if (ud.curScale === undefined) { ud.curScale = 0; ud.curPos = [baseX, baseY, baseZ]; }
+    ud.curScale = lerp(ud.curScale, targetScale, 0.035);
+    ud.curPos[0] = lerp(ud.curPos[0], targetPos[0], 0.035);
+    ud.curPos[1] = lerp(ud.curPos[1], targetPos[1], 0.035);
+    ud.curPos[2] = lerp(ud.curPos[2], targetPos[2], 0.035);
+
+    mesh.position.set(ud.curPos[0], ud.curPos[1], ud.curPos[2]);
+    const s = Math.max(ud.curScale, 0.001);
+    mesh.scale.set(baseRadius*s*scaleXYZ[0], baseRadius*s*scaleXYZ[1], baseRadius*s*scaleXYZ[2]);
+    mesh.visible = ud.curScale > 0.003;
+  });
+
+  document.getElementById('ro-radius').textContent = tubeRadius.toFixed(2) + ' u';
+  document.getElementById('ro-spin').textContent = spinSpeed.toFixed(2) + ' rad/s';
+  document.getElementById('ro-L').textContent = (tubeRadius*tubeRadius*spinSpeed).toFixed(2);
+}
+
+const tmpPoint = new THREE.Vector3(), tmpTangent = new THREE.Vector3();
+const tmpNormal = new THREE.Vector3(), tmpBinormal = new THREE.Vector3();
+const worldUp = new THREE.Vector3(0, 1, 0);
+
+function updateVortexParticles(elapsedTime) {
+  const posAttr = particleGeo.attributes.position;
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const params = particleParams[i];
+    const flow = (flowTime) % 1;
+    const t = (params.tBase + flow) % 1;
+
+    curve.getPoint(t, tmpPoint);
+    curve.getTangent(t, tmpTangent).normalize();
+    tmpNormal.crossVectors(tmpTangent, worldUp);
+    // --- Anti-flip : quand la tangente de la courbe devient presque
+    // verticale (exactement ce qui arrive au milieu du basculement,
+    // étape 2), ce produit vectoriel s'approche de zéro et sa
+    // normalisation amplifie le moindre bruit numérique — d'une frame à
+    // l'autre, le repère normal/binormal peut alors basculer de signe,
+    // ce qui se VOIT comme "le rouleau repart dans l'autre sens" avant
+    // de se corriger. Fix : si le produit est trop petit, on réutilise
+    // le repère de la frame précédente au lieu d'en calculer un nouveau
+    // (bruité) ; sinon, on force sa continuité de signe par rapport au
+    // précédent. Le repère ne "saute" donc plus jamais.
+    if (tmpNormal.lengthSq() < 0.02) {
+      if (params.lastNormal) { tmpNormal.copy(params.lastNormal); }
+      else { tmpNormal.crossVectors(tmpTangent, new THREE.Vector3(1,0,0)); }
+    } else {
+      tmpNormal.normalize();
+      if (params.lastNormal && tmpNormal.dot(params.lastNormal) < 0) tmpNormal.negate();
+    }
+    if (!params.lastNormal) params.lastNormal = new THREE.Vector3();
+    params.lastNormal.copy(tmpNormal);
+    tmpBinormal.crossVectors(tmpTangent, tmpNormal).normalize();
+
+    const angle = params.angle0 + spinPhase * params.speedJitter;
+    const taper = 0.6 + 0.4 * Math.sin(t * Math.PI);
+    const r = tubeRadius * params.radiusJitter * taper;
+
+    posAttr.array[i*3+0] = tmpPoint.x + r * (Math.cos(angle)*tmpNormal.x + Math.sin(angle)*tmpBinormal.x);
+    posAttr.array[i*3+1] = tmpPoint.y + r * (Math.cos(angle)*tmpNormal.y + Math.sin(angle)*tmpBinormal.y);
+    posAttr.array[i*3+2] = tmpPoint.z + r * (Math.cos(angle)*tmpNormal.z + Math.sin(angle)*tmpBinormal.z);
+  }
+  posAttr.needsUpdate = true;
+}
+
+function updateUpdraftStream(elapsed) {
+  const posAttr = updraftGeo.attributes.position;
+  const center = updraftStream.userData.center || p1;
+  const topY = updraftStream.userData.topY || 16;
+  for (let i = 0; i < UPDRAFT_COUNT; i++) {
+    const ph = updraftPhases[i];
+    let y = ((ph.phase + elapsed * ph.speed) % 1);
+    const worldY = 1 + y * (topY - 1);
+    // Le flux se resserre légèrement en approchant du sommet (entraîné par le vortex)
+    const r = ph.radius * (1 - 0.4 * y);
+    posAttr.array[i*3+0] = center.x + Math.cos(ph.angle + elapsed*0.6) * r;
+    posAttr.array[i*3+1] = worldY;
+    posAttr.array[i*3+2] = center.z + Math.sin(ph.angle + elapsed*0.6) * r;
+  }
+  posAttr.needsUpdate = true;
+}
+
+/* =====================================================================
+   PARTICULES D'INFLOW — spiralent depuis loin (grand rayon) vers la
+   base du tube (p0), en se rapprochant progressivement de l'axe et en
+   montant très légèrement, pour visualiser l'air ambiant "aspiré" par
+   l'orage en formation. Le cycle se boucle : une fois arrivées près du
+   centre, les particules repartent de loin.
+   ===================================================================== */
+/* =====================================================================
+   PARTICULES D'INFLOW — deux phases de trajectoire :
+     1) CONVERGENCE (cycle 0 → 0.5) : la particule vient de loin, au ras
+        du sol, et se rapproche en spirale de la base du tube (p0).
+     2) ENTRAÎNEMENT SUR LA COURBE (cycle 0.5 → 1) : une fois arrivée,
+        elle NE RESTE PAS au sol — elle rejoint la courbe de Bézier
+        elle-même (curve.getPoint) et grimpe le long du tube, avec le
+        même repère tangente/normale/binormale que les particules du
+        vortex, avant de s'estomper (fondu via la couleur, en additive
+        blending) et de reboucler. C'est ce qui manquait : l'air aspiré
+        devait visiblement REJOINDRE le mouvement du tube, pas juste
+        s'arrêter à sa base.
+   ===================================================================== */
+const inflowTmpPoint = new THREE.Vector3();
+const inflowTmpTangent = new THREE.Vector3();
+const inflowTmpNormal = new THREE.Vector3();
+const inflowTmpBinormal = new THREE.Vector3();
+
+/* =====================================================================
+   FLÈCHES D'INFLOW — trajet en deux phases identique à l'ancien système
+   de particules (convergence au sol puis entraînement sur la courbe),
+   mais chaque flèche est en plus ORIENTÉE dans le sens réel de son
+   déplacement (via un quaternion aligné sur le vecteur direction),
+   rendant le flux immédiatement lisible.
+   ===================================================================== */
+const inflowArrowTmpPoint = new THREE.Vector3();
+const inflowArrowTmpTangent = new THREE.Vector3();
+const inflowArrowTmpNormal = new THREE.Vector3();
+const inflowArrowTmpBinormal = new THREE.Vector3();
+const inflowArrowDir = new THREE.Vector3();
+const inflowArrowUnitX = new THREE.Vector3(1, 0, 0);
+const inflowArrowPrevPos = new THREE.Vector3();
+
+function updateInflowArrows(elapsed) {
+  const target = inflowArrowsData.target || p0;
+  const speedScale = inflowArrowsData.speedScale || 1;
+  const CONVERGE_FRAC = 0.5;
+  const CURVE_CAP = 0.4;
+
+  for (let i = 0; i < INFLOW_ARROW_COUNT; i++) {
+    const arrow = inflowArrows[i];
+    const ph = inflowArrowParams[i];
+    const cycle = (ph.phase + elapsed * ph.speed * speedScale) % 1;
+
+    let x, y, z, fade;
+
+    if (cycle < CONVERGE_FRAC) {
+      const tApproach = cycle / CONVERGE_FRAC;
+      const r = lerp(ph.outerR, 0.6, tApproach);
+      const angle = ph.angle + tApproach * 1.1;
+      x = target.x + Math.cos(angle) * r;
+      y = lerp(1 + ph.heightJitter, target.y + 0.3, tApproach);
+      z = target.z + Math.sin(angle) * r;
+      fade = smooth01(tApproach);
+      // Direction : tangente au trajet d'approche (dérivée numérique simple)
+      const rPrev = lerp(ph.outerR, 0.6, Math.max(0, tApproach - 0.02));
+      const anglePrev = ph.angle + Math.max(0, tApproach - 0.02) * 1.1;
+      inflowArrowPrevPos.set(target.x + Math.cos(anglePrev) * rPrev, y, target.z + Math.sin(anglePrev) * rPrev);
+      inflowArrowDir.set(x, y, z).sub(inflowArrowPrevPos);
+    } else {
+      const tCurve = ((cycle - CONVERGE_FRAC) / (1 - CONVERGE_FRAC)) * CURVE_CAP;
+      curve.getPoint(tCurve, inflowArrowTmpPoint);
+      curve.getTangent(tCurve, inflowArrowTmpTangent).normalize();
+      inflowArrowTmpNormal.crossVectors(inflowArrowTmpTangent, worldUp);
+      if (inflowArrowTmpNormal.lengthSq() < 0.0001) inflowArrowTmpNormal.crossVectors(inflowArrowTmpTangent, new THREE.Vector3(1,0,0));
+      inflowArrowTmpNormal.normalize();
+      inflowArrowTmpBinormal.crossVectors(inflowArrowTmpTangent, inflowArrowTmpNormal).normalize();
+
+      const orbitAngle = ph.angle * 3 + spinPhase * 0.8;
+      const orbitR = 0.5 + tubeRadius * 0.6;
+      x = inflowArrowTmpPoint.x + orbitR * (Math.cos(orbitAngle)*inflowArrowTmpNormal.x + Math.sin(orbitAngle)*inflowArrowTmpBinormal.x);
+      y = inflowArrowTmpPoint.y + orbitR * (Math.cos(orbitAngle)*inflowArrowTmpNormal.y + Math.sin(orbitAngle)*inflowArrowTmpBinormal.y);
+      z = inflowArrowTmpPoint.z + orbitR * (Math.cos(orbitAngle)*inflowArrowTmpNormal.z + Math.sin(orbitAngle)*inflowArrowTmpBinormal.z);
+
+      const tOut = (cycle - CONVERGE_FRAC) / (1 - CONVERGE_FRAC);
+      fade = clamp01(1 - (tOut - 0.55) * 3);
+      // Direction : tangente de la courbe + une part de la rotation orbitale
+      inflowArrowDir.copy(inflowArrowTmpTangent)
+        .addScaledVector(inflowArrowTmpNormal, -Math.sin(orbitAngle) * 0.6)
+        .addScaledVector(inflowArrowTmpBinormal, Math.cos(orbitAngle) * 0.6);
+    }
+
+    arrow.position.set(x, y, z);
+    if (inflowArrowDir.lengthSq() > 0.0001) {
+      arrow.quaternion.setFromUnitVectors(inflowArrowUnitX, inflowArrowDir.clone().normalize());
+    }
+    const len = 0.55 + fade * 0.35;
+    arrow.scale.set(len, 1, 1);
+    const opacity = inflowArrowOpacity * fade;
+    arrow.children.forEach(c => c.material.opacity = opacity);
+  }
+}
+
+/* =====================================================================
+   DÉBRIS AU SOL — étape 4 (étirement). Signale visuellement que le
+   vortex a touché terre, sans quoi rien ne marquait ce moment précis
+   autrement que par la valeur d'un slider. Petit nuage de particules
+   brunes qui tourbillonnent autour de la base dès que celle-ci est
+   proche du sol.
+   ===================================================================== */
+const DEBRIS_COUNT = 260;
+const debrisPositions = new Float32Array(DEBRIS_COUNT * 3);
+const debrisParams = [];
+for (let i = 0; i < DEBRIS_COUNT; i++) {
+  debrisParams.push({
+    angle: Math.random() * Math.PI * 2,
+    radius: 0.6 + Math.random() * 2.4,
+    speed: 0.6 + Math.random() * 1.4,
+    heightJitter: Math.random() * 1.6,
+  });
+}
+const debrisGeo = new THREE.BufferGeometry();
+debrisGeo.setAttribute('position', new THREE.BufferAttribute(debrisPositions, 3));
+const debrisMat = new THREE.PointsMaterial({
+  color: 0x8a6f4a, size: 0.16, transparent: true, opacity: 0, depthWrite: false,
+});
+const debrisCloud = new THREE.Points(debrisGeo, debrisMat);
+scene.add(debrisCloud);
+
+function updateDebrisCloud(elapsed) {
+  const posAttr = debrisGeo.attributes.position;
+  // Intensité : seulement à l'étape 4, et seulement quand la base est
+  // effectivement proche du sol (le vortex a "touché terre").
+  const grounded = currentStage === 3 ? clamp01(1 - p0.y / 1.8) : 0;
+  debrisMat.opacity = lerp(debrisMat.opacity, grounded * 0.85, 0.08);
+  for (let i = 0; i < DEBRIS_COUNT; i++) {
+    const d = debrisParams[i];
+    const a = d.angle + elapsed * d.speed;
+    const r = d.radius * (0.6 + 0.4 * Math.sin(elapsed * 0.7 + d.angle));
+    posAttr.array[i*3+0] = p0.x + Math.cos(a) * r;
+    posAttr.array[i*3+1] = 0.15 + d.heightJitter * (0.3 + 0.4 * Math.sin(elapsed * 1.3 + i));
+    posAttr.array[i*3+2] = p0.z + Math.sin(a) * r;
+  }
+  posAttr.needsUpdate = true;
+}
+
+
+/* =====================================================================
+   AUTOPLAY — étape 5. Fait avancer "currentStage" (0→3) tout seul dans
+   le temps, et anime directement les sliders pertinents de chaque phase
+   de 0 à 1. Comme toute la physique de updateSceneFromSliders() lit ces
+   mêmes valeurs (via sliderValues / v()), on n'a RIEN à dupliquer :
+   l'autoplay se contente de jouer le rôle de la souris.
+   ===================================================================== */
+const AUTOPLAY_PHASES = [
+  { stage: 0, start: 0.00, end: 0.20 },
+  { stage: 1, start: 0.20, end: 0.46 }, // basculement allongé : transition la plus délicate à bien lire
+  { stage: 2, start: 0.46, end: 0.70 },
+  { stage: 3, start: 0.70, end: 1.00 },
+];
+const AUTOPLAY_DURATION = 38; // secondes pour un cycle complet
+
+function updateAutoplay(elapsed) {
+  const t = ((elapsed - autoplayStart) % AUTOPLAY_DURATION) / AUTOPLAY_DURATION;
+  const phase = AUTOPLAY_PHASES.find(p => t >= p.start && t < p.end) || AUTOPLAY_PHASES[AUTOPLAY_PHASES.length - 1];
+  const localT = smooth01((t - phase.start) / (phase.end - phase.start));
+
+  currentStage = phase.stage;
+  if (phase.stage !== autoplayPhaseShown) {
+    autoplayPhaseShown = phase.stage;
+    applyStageText(phase.stage); // rafraîchit le texte scientifique seulement au changement de phase
+  }
+
+  if (phase.stage === 0) {
+    sliderValues.windSurface = lerp(0.15, 0.35, localT);
+    sliderValues.windAltitude = lerp(0.2, 0.85, localT);
+    sliderValues.windAltitudeDir = lerp(5, 32, localT);
+  } else if (phase.stage === 1) {
+    sliderValues.updraft = localT;
+  } else if (phase.stage === 2) {
+    sliderValues.rfd = localT;
+    sliderValues.baroclinic = lerp(0, 0.75, localT);
+  } else if (phase.stage === 3) {
+    sliderValues.convergence = localT;
+    sliderValues.stretch = localT;
+  }
+}
+
+const clock = new THREE.Clock();
+let flowTime = 0; // accumulateur indépendant, avance seulement quand flowIntensity > 0
+// Phase de rotation du vortex, accumulée proprement (intégrale de spinSpeed
+// dans le temps) plutôt que "elapsedTime * spinSpeed". Cette dernière
+// formule n'est valable QUE si spinSpeed est constant ; comme on le lisse
+// désormais d'une étape à l'autre, elle provoquait un saut d'angle (donc
+// un "tour dans l'autre sens" visible) à chaque changement de valeur.
+let spinPhase = 0;
+
+// --- Caméra : distance/hauteur cibles par étape, atteintes en douceur
+// (lerp chaque frame) plutôt que par un saut instantané au changement
+// d'étape. On recule nettement aux étapes 3-4 pour laisser voir les
+// masses d'air en plus du vortex.
+const CAMERA_TARGETS = [
+  { dist: 14, height: 7 },   // étape 1 : cisaillement, vue resserrée
+  { dist: 20, height: 9 },   // étape 2 : coude bas→haut, vue élargie pour suivre toute la courbe
+  { dist: 28, height: 12 },  // étape 3 : reculé pour bien distinguer les deux masses d'air et leurs étiquettes
+  { dist: 22, height: 10 },  // étape 4 : vortex complet, sol au nuage
+];
+let camDist = CAMERA_TARGETS[0].dist;
+let camHeight = CAMERA_TARGETS[0].height;
+
+let lastElapsed = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const elapsed = clock.getElapsedTime();
+  globalElapsed = elapsed;
+  const delta = elapsed - lastElapsed;
+  lastElapsed = elapsed;
+  flowTime += delta * 0.05 * flowIntensity;
+  if (autoplayActive) updateAutoplay(elapsed);
+  updateSceneFromSliders();
+  spinPhase += delta * spinSpeed; // intégration correcte, après la mise à jour de spinSpeed
+  updateVortexParticles(elapsed);
+  updateUpdraftStream(elapsed);
+  updateInflowArrows(elapsed);
+  updateRfdDowndraft(elapsed);
+  updateDebrisCloud(elapsed);
+
+  // Rotation du mésocyclone (le nuage tout entier) : rend visible la
+  // rotation de méso-échelle qui, sinon, ne se voyait que sur le vortex
+  // lui-même. S'intensifie avec l'organisation (étapes RFD puis étirement).
+  const cloudSpinRate = currentStage === 1 ? 0.02 : currentStage === 2 ? 0.16 : currentStage === 3 ? 0.26 : 0;
+  cloudGroup.rotation.y += delta * cloudSpinRate;
+
+  if (autorotateEl.checked) manualAngle += 0.0018;
+
+  const target = CAMERA_TARGETS[currentStage];
+  camDist = lerp(camDist, target.dist, 0.012);
+  camHeight = lerp(camHeight, target.height, 0.012);
+
+  camera.position.x = Math.cos(manualAngle) * camDist;
+  camera.position.z = Math.sin(manualAngle) * camDist;
+  camera.position.y = camHeight;
+  cameraTarget.set((p0.x+p2.x)/2, (p0.y+p2.y)/2 + 1, (p0.z+p2.z)/2);
+  camera.lookAt(cameraTarget);
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
